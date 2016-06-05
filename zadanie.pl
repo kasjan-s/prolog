@@ -35,7 +35,7 @@ update_map(node(L, K, V, R), Key, Value, node(L, K, V, NewR)) :-
   update_map(R, Key, Value, NewR).
 
 init_arrays([], []).
-init_arrays([H|T], [(H,map(nil))|AT]) :-
+init_arrays([H|T], [(H,nil)|AT]) :-
   init_arrays(T, AT). 
 
 init_procs(N, PrList) :-
@@ -106,7 +106,7 @@ oblicz(Comp, (PrId, Var, Arr), Val) :-
 przypisz(X, Val, _, (Var, Arr), (VarWy, Arr)) :-
   atomic(X),
   update_var(Var, X, Val, VarWy).
-przypisz(arr(X, Wyr), PrId, Val, (Var, Arr), (Var, ArrWy)) :-
+przypisz(arr(X, Wyr), Val, PrId, (Var, Arr), (Var, ArrWy)) :-
   atomic(X),
   oblicz(Wyr, (PrId, Var, Arr), Idx),
   update_arr(Arr, X, Idx, Val, ArrWy).
@@ -141,6 +141,27 @@ step((_, _, program(P)), (Var, Arr, PrL), PrId, (VarWy, ArrWy, PrLWy)) :-
   nth1(CtrPr, P, Ins),
   wykonaj(Ins, PrId, CtrPr, (Var, Arr, PrL), (VarWy, ArrWy, PrLWy)).
 
+not_member(_, []) :- !.
+not_member(X, [H|T]) :-
+  X \= H,
+  not_member(X, T).
+
+print_list([]).
+print_list([H|T]) :-
+  write(H), nl,
+  print_list(T).
+
+dfs((V,A,P), StanP, List) :-
+  length(List, N),
+  write(N), nl,
+  illegalState(P, StanP) ->
+  !, print_list([StanP|List]) ;
+  not_member(StanP, List),
+  step((V,A,P), StanP, PrId, StanWy),
+  % format('Proces ~p ~n', PrId),
+  not_member(StanWy, List),
+  dfs((V,A,P), StanWy, [StanP|List]).
+
 verify(N, _) :-
   N =< 0,
   format('Error: Niepoprawna wartosc N - ~p.~n', N).
@@ -153,7 +174,7 @@ verify(N, Program) :-
   read(P),
   seen,
   initState((V, A, P), N, StanP),
-  write(StanP).
+  dfs((V,A,P), StanP, []).
 verify(_, Program) :-
   format('Error: niepoprawna nazwa pliku - ~p.~n', [Program]).
                                 % verify(N, Program)
