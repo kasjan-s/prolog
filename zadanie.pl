@@ -67,9 +67,18 @@ find_arr([(X, Tab)|_], X, Tab).
 find_arr([_|T], X, Tab) :-
   find_arr(T, X, Tab).
 
+update_arr([(X, Map)|T], X, Idx, Val, [(X, MapWy)|T]) :-
+  update_map(Map, Idx, Val, MapWy).
+update_arr([H|T], X, Idx, Val, [H|NT]) :-
+  update_arr(T, X, Idx, Val, NT).
+
 lookup_var([(X, Val)|_], X, Val).
 lookup_var([_|T], X, Val) :-
   lookup_var(T, X, Val).
+
+update_var([(X,_)|T], X, Val, [(X, Val)|T]).
+update_var([H|T], X, Val, [H|NT]) :-
+  update_var(T, X, Val, NT).
 
 oblicz(pid, (PrId, _, _), PrId) :- !.
 oblicz(N, (_, _, _), N) :-
@@ -94,17 +103,36 @@ oblicz(Comp, (PrId, Var, Arr), Val) :-
   !,
   Val is RetComp.
 
+przypisz(X, Val, _, (Var, Arr), (VarWy, Arr)) :-
+  atomic(X),
+  update_var(Var, X, Val, VarWy).
+przypisz(arr(X, Wyr), PrId, Val, (Var, Arr), (Var, ArrWy)) :-
+  atomic(X),
+  oblicz(Wyr, (PrId, Var, Arr), Idx),
+  update_arr(Arr, X, Idx, Val, ArrWy).
 
 wykonaj(sekcja, PrId, CtrPr, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
-  Val is CtrPr + 1,
-  update_list(PrL, PrId, Val, PrLWy).
+  CtrPrWy is CtrPr + 1,
+  update_list(PrL, PrId, CtrPrWy, PrLWy).
 wykonaj(goto(N), PrId, _, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
+  number(N),
   update_list(PrL, PrId, N, PrLWy).
 wykonaj(assign(X, Wyr), PrId, CtrPr, (Var, Arr, PrL), (VarWy, ArrWy, PrLWy)) :-
   CtrPtrWy is CtrPr + 1,
   update_list(PrL, PrId, CtrPtrWy, PrLWy),
   oblicz(Wyr, (PrId, Var, Arr), Val),
-  przypisz(X, Val, (Var, Arr), (VarWy, ArrWy)).
+  przypisz(X, Val, PrId, (Var, Arr), (VarWy, ArrWy)).
+wykonaj(condGoto(WyrL, N), PrId, CtrPr, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
+  number(N),
+  functor(WyrL, _, 2),
+  WyrL =.. [Op, Wyr1, Wyr2],
+  oblicz(Wyr1, (PrId, Var, Arr), Val1),
+  oblicz(Wyr2, (PrId, Var, Arr), Val2),
+  RetComp =.. [Op, Val1, Val2],
+  call(RetComp) ->
+  update_list(PrL, PrId, N, PrLWy)
+  ; CtrPrWy is CtrPr + 1,
+  update_list(PrL, PrId, CtrPrWy, PrLWy).
   
 
                                 % step(+Program, +StanWe, -PrId, -StanWy)
