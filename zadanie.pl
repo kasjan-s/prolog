@@ -193,7 +193,7 @@ graphSearch((V,A,P), [(StanP, Rodzic, PrId)|Tail], Visited, N) :-
   append(Tail, StanyWy, NewTail),
   NewVisited = [((StanP, Rodzic, PrId), N)|Visited],
   N1 is N+1,
-  dfs((V,A,P), NewTail, NewVisited, N1), !.
+  graphSearch((V,A,P), NewTail, NewVisited, N1), !.
 
 % Wypisywanie sciezki (przeplotu)
 printPath((_, nil, nil), _) :-
