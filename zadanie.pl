@@ -40,14 +40,13 @@ initState((vars(V), arrays(A), program(_)), N, (Vars, Arrs, PrList)) :-
   init_procs(N, PrList).
 
 
-illegalState(program(P), (_, _, PrL)) :-
+illegalState(program(P), (_, _, PrL), [Pr1, Pr2]) :-
   nth0(Pr1, PrL, CtPr1),
   nth0(Pr2, PrL, CtPr2),
   Pr1 =\= Pr2,
   nth1(CtPr1, P, sekcja),
   nth1(CtPr2, P, sekcja),
-  !,
-  format('Procesy w sekcji: ~p, ~p.~n', [Pr1, Pr2]).
+  !.
 
 update_list([_|T], 0, Val, [Val|T]).
 update_list([H|T], N, Val, [H|NT]) :-
@@ -143,56 +142,45 @@ print_list([H|T]) :-
   print_list(T).
 
 
-ruch(Stan, Rodzic, (Stan, Rodzic)).
+ruch(Stan, Rodzic, PrId, (Stan, Rodzic, PrId)).
 
 possibleMoves(Pr, StanWe, Queue, Visited, Lista) :-
   possibleMoves(Pr, StanWe, Queue, Visited, [], Lista).
 possibleMoves(Pr, StanWe, Queue, Visited, Lista, NList) :-
-  step(Pr, StanWe, _, StanWy),
-  ruch(StanWy, _, Test),
+  step(Pr, StanWe, PrId, StanWy),
+  ruch(StanWy, _, _, Test),
   not_member(Test, Queue),
   not_member(Test, Lista),
   not_member((Test,_), Visited) ->
   !,
-  possibleMoves(Pr, StanWe, Queue, Visited, [(StanWy, StanWe)|Lista], NList) ;
+  possibleMoves(Pr, StanWe, Queue, Visited, [(StanWy, StanWe, PrId)|Lista], NList) ;
   !,
   NList = Lista.
 
 dfs(_, [], _, _) :-
   write('Program jest poprawny (bezpieczny).').
-dfs((_,_,P), [(StanP, Rodzic)|_], Visited, N) :-
-  illegalState(P, StanP),
+dfs((_,_,P), [(StanP, Rodzic, PrId)|_], Visited, N) :-
+  illegalState(P, StanP, Pr),
   format('Program nie jest poprawny: stan nr ~p nie jest bezpieczny.~n', [N]),
-  print_path((StanP, Rodzic), Visited).
-dfs((V,A,P), [(StanP, Rodzic)|Tail], Visited, N) :-
+  print_path((StanP, Rodzic, PrId), Visited),
+  format('Procesy w sekcji: ~p, ~p.~n', Pr).
+dfs((V,A,P), [(StanP, Rodzic, PrId)|Tail], Visited, N) :-
   (possibleMoves((V,A,P), StanP, Tail, Visited, StanyWy) ; StanyWy = []),
   append(Tail, StanyWy, NewTail),
-  NewVisited = [((StanP, Rodzic), N)|Visited],
+  NewVisited = [((StanP, Rodzic, PrId), N)|Visited],
   N1 is N+1,
   dfs((V,A,P), NewTail, NewVisited, N1), !.
 
+print_path((_, nil, nil), _) :-
+  write('Niepoprawny przeplot'), nl.
+print_path((_, Rodzic, PrId), Visited) :-
+  ruch(Rodzic, _, _, ((VR, AR, PRL), RR, PR)),
+  member((((VR, AR, PRL), RR, PR), _), Visited),
+  print_path(((VR, AR, PRL), RR, PR), Visited),
+  nth0(PrId, PRL, Ctr),
+  format('   Proces ~p: ~p~n', [PrId, Ctr]).
 
-print_path((Stan, nil), _) :-
-  write(Stan), nl.
-print_path((Stan, Rodzic), Visited) :-
-  ruch(Rodzic, _, RuchRodzica),
-  member((RuchRodzica, _), Visited),
-  print_path(RuchRodzica, Visited),
-  write(Stan), nl.
-% dfs((V,A,P), [StanP|Tail], Path) :-
-%   not_member(StanP, Visited),
-%   (possibleMoves((V,A,P), StanP, Tail, StanyWy) ; StanyWy = []),
-%   append(Tail, StanyWy, NewTail),
-%   dfs((V,A,P), NewTail, [StanP|Path]).
-  % step((V,A,P), StanP, PrId, StanWy),
-  % append(StanyWy, Seen, NS),
-  % remove_dups(NS, NewSeen),
-  % member(StanWy, StanyWy),
-  % not_member(StanWy, Visited),
-  % not_member(StanWy, Seen),
-  % dfs((V,A,P), StanWy, [StanP|Path], [StanP|Visited], NewSeen, Aft),
-  % .
-
+                                % verify(N, Program)
 verify(N, _) :-
   N =< 0,
   format('Error: Niepoprawna wartosc N - ~p.~n', N).
@@ -205,15 +193,6 @@ verify(N, Program) :-
   read(P),
   seen,
   initState((V, A, P), N, StanP),
-  % possibleMoves((V,A,P), StanP, Lista),
-  % print_list(Lista).
-  % step((V,A,P), StanP, PrId, StanWy),
-  % write(PrId), nl,
-  % write(StanWy), nl,
-                                % 1 =:= 3.
-  dfs((V,A,P), [(StanP, nil)], [], 0).
+  dfs((V,A,P), [(StanP, nil, nil)], [], 0).
 verify(_, Program) :-
   format('Error: niepoprawna nazwa pliku - ~p.~n', [Program]).
-                                % verify(N, Program)
-                                % initState(+Program, +N, -StanPoczatkowy)
-                                % step(+Program, +StanWe, ?PrId, -StanWy)
