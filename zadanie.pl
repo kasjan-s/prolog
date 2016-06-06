@@ -7,9 +7,12 @@
 init_vars([], []).
 init_vars([H|T], [(H,0)|NT]) :-
   init_vars(T,NT).
-  
+
 lookup_map(List, Key, Value) :-
+  length(List, N),
+  Key < N,
   nth0(Key, List, Value).
+lookup_map(_, _, 0).
 
 update_map([], 0, Value, [Value]).
 update_map([_|T], 0, Value, [Value|T]).
@@ -139,30 +142,56 @@ print_list([H|T]) :-
   write(H), nl,
   print_list(T).
 
-possibleMoves(Pr, StanWe, Lista) :-
-  possibleMoves(Pr, StanWe, [], Lista).
-possibleMoves(Pr, StanWe, Lista, NList) :-
+
+ruch(Stan, Rodzic, (Stan, Rodzic)).
+
+possibleMoves(Pr, StanWe, Queue, Visited, Lista) :-
+  possibleMoves(Pr, StanWe, Queue, Visited, [], Lista).
+possibleMoves(Pr, StanWe, Queue, Visited, Lista, NList) :-
   step(Pr, StanWe, _, StanWy),
-  not_member(StanWy, Lista) ->
+  ruch(StanWy, _, Test),
+  not_member(Test, Queue),
+  not_member(Test, Lista),
+  not_member((Test,_), Visited) ->
   !,
-  possibleMoves(Pr, StanWe, [StanWy|Lista], NList) ;
+  possibleMoves(Pr, StanWe, Queue, Visited, [(StanWy, StanWe)|Lista], NList) ;
   !,
   NList = Lista.
 
-dfs((V,A,P), StanP, Path, Visited, Seen) :-
-  length(Path, N),
-  write(N), nl,
-  read(_),
-  illegalState(P, StanP) ->
-  !, print_list([StanP|Path]) ;
-  not_member(StanP, Visited),
-  possibleMoves((V,A,P), StanP, StanyWy),
-  append(StanyWy, Seen, NS),
-  remove_dups(NS, NewSeen),
-  member(StanWy, StanyWy),
-  not_member(StanWy, Visited),
-  not_member(StanWy, Seen),
-  dfs((V,A,P), StanWy, [StanP|Path], [StanP|Visited], NewSeen).
+dfs(_, [], _, _) :-
+  write('Program jest poprawny (bezpieczny).').
+dfs((_,_,P), [(StanP, Rodzic)|_], Visited, N) :-
+  illegalState(P, StanP),
+  format('Program nie jest poprawny: stan nr ~p nie jest bezpieczny.~n', [N]),
+  print_path((StanP, Rodzic), Visited).
+dfs((V,A,P), [(StanP, Rodzic)|Tail], Visited, N) :-
+  (possibleMoves((V,A,P), StanP, Tail, Visited, StanyWy) ; StanyWy = []),
+  append(Tail, StanyWy, NewTail),
+  NewVisited = [((StanP, Rodzic), N)|Visited],
+  N1 is N+1,
+  dfs((V,A,P), NewTail, NewVisited, N1), !.
+
+
+print_path((Stan, nil), _) :-
+  write(Stan), nl.
+print_path((Stan, Rodzic), Visited) :-
+  ruch(Rodzic, _, RuchRodzica),
+  member((RuchRodzica, _), Visited),
+  print_path(RuchRodzica, Visited),
+  write(Stan), nl.
+% dfs((V,A,P), [StanP|Tail], Path) :-
+%   not_member(StanP, Visited),
+%   (possibleMoves((V,A,P), StanP, Tail, StanyWy) ; StanyWy = []),
+%   append(Tail, StanyWy, NewTail),
+%   dfs((V,A,P), NewTail, [StanP|Path]).
+  % step((V,A,P), StanP, PrId, StanWy),
+  % append(StanyWy, Seen, NS),
+  % remove_dups(NS, NewSeen),
+  % member(StanWy, StanyWy),
+  % not_member(StanWy, Visited),
+  % not_member(StanWy, Seen),
+  % dfs((V,A,P), StanWy, [StanP|Path], [StanP|Visited], NewSeen, Aft),
+  % .
 
 verify(N, _) :-
   N =< 0,
@@ -181,8 +210,8 @@ verify(N, Program) :-
   % step((V,A,P), StanP, PrId, StanWy),
   % write(PrId), nl,
   % write(StanWy), nl,
-  % 1 =:= 3.
-  dfs((V,A,P), StanP, [], [], [StanP]).
+                                % 1 =:= 3.
+  dfs((V,A,P), [(StanP, nil)], [], 0).
 verify(_, Program) :-
   format('Error: niepoprawna nazwa pliku - ~p.~n', [Program]).
                                 % verify(N, Program)
