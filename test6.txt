@@ -1,0 +1,13 @@
+vars([]).
+arrays([x, y]).
+program([assign(arr(y, pid), pid-arr(x, pid)),
+  condGoto(arr(y, pid) < 1, 4),
+  assign(arr(y, pid), arr(y, pid)-1),
+  condGoto(arr(y, pid) < pid, 6),
+  goto(1),
+  assign(arr(x, pid), arr(x, pid)+arr(y, pid)),
+  condGoto(arr(x, pid) < 2, 1),
+  sekcja,
+  goto(8),
+  goto(1)
+]).

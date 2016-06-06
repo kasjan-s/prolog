@@ -4,179 +4,204 @@
 
 <>(X, Y) :- X =\= Y.
 
-init_vars([], []).
-init_vars([H|T], [(H,0)|NT]) :-
-  init_vars(T,NT).
+% notMember(+X, +Lista) - predykat jest prawdziwy, jesli w Lista nie ma elementu X
+notMember(_, []) :- !.
+notMember(X, [H|T]) :-
+  X \= H,
+  notMember(X, T).
 
-lookup_map(List, Key, Value) :-
+% Uzywam list jako map. Klucze to indeksy wartosci w liscie.
+% Taka reprezentacja wystarczy, jesli wczytany program jest poprawny.
+lookupMap(List, Key, Value) :-
   length(List, N),
   Key < N,
   nth0(Key, List, Value).
-lookup_map(_, _, 0).
+lookupMap(_, _, 0).
 
-update_map([], 0, Value, [Value]).
-update_map([_|T], 0, Value, [Value|T]).
-update_map([], Key, Value, [0|T]) :-
+updateMap([], 0, Value, [Value]).
+updateMap([_|T], 0, Value, [Value|T]).
+updateMap([], Key, Value, [0|T]) :-
   Key > 0,
   NK is Key - 1,
-  update_map([], NK, Value, T).
-update_map([H|T], Key, Value, [H|NT]) :-
+  updateMap([], NK, Value, T).
+updateMap([H|T], Key, Value, [H|NT]) :-
   Key > 0,
   NK is Key - 1,
-  update_map(T, NK, Value, NT).
+  updateMap(T, NK, Value, NT).
 
-init_arrays([], []).
-init_arrays([H|T], [(H,[])|AT]) :-
-  init_arrays(T, AT). 
+% Inicjalizacja zmiennych
+initVars([], []).
+initVars([H|T], [(H,0)|NT]) :-
+  initVars(T,NT).
 
-init_procs(N, PrList) :-
+% Operacje na zmiennych
+lookupVar([(X, Val)|_], X, Val).
+lookupVar([_|T], X, Val) :-
+  lookupVar(T, X, Val).
+
+updateVar([(X,_)|T], X, Val, [(X, Val)|T]).
+updateVar([H|T], X, Val, [H|NT]) :-
+  updateVar(T, X, Val, NT).
+
+% Inicjalizacja tablic
+initArrays([], []).
+initArrays([H|T], [(H,[])|AT]) :-
+  initArrays(T, AT). 
+
+% Operacje na tablicach
+findArr([(X, Tab)|_], X, Tab).
+findArr([_|T], X, Tab) :-
+  findArr(T, X, Tab).
+
+updateArr([(X, Map)|T], X, Idx, Val, [(X, MapWy)|T]) :-
+  updateMap(Map, Idx, Val, MapWy).
+updateArr([H|T], X, Idx, Val, [H|NT]) :-
+  updateArr(T, X, Idx, Val, NT).
+% Inicjalizacja licznikow rozkazow
+initProcs(N, PrList) :-
   length(PrList, N),
   maplist(=(1), PrList).
 
-                                % initState(+Program, +N, -StanPoczatkowy)
+% Stan programu reprezentuje jako trojke (Var, Arr, PrL), gdzie
+%   Var - lista par postaci (x, Val), gdzie Val to wartosc zmiennej x
+%   Arr - lista par postaci (array, Vals), gdzie Vals to lista wartosci
+%         tablicy array. Trzymam w pamieci tylko elementy z indeksow 0..TOP,
+%         gdzie TOP to maksymalny indeks, dla ktorego wywolana zostala
+%         instrukcja przypisania assign(arr(array, TOP), _) (do danego
+%         momentu wykonania programu)
+%   PrL - lista licznikow rozkazow. N-ta pozycja listy to licznik rozkazow
+%         N-tego procesora
+
+% initState(+Program, +N, -StanPoczatkowy)
 initState((vars(V), arrays(A), program(_)), N, (Vars, Arrs, PrList)) :-
-  init_vars(V, Vars),
-  init_arrays(A, Arrs),
-  init_procs(N, PrList).
+  initVars(V, Vars),
+  initArrays(A, Arrs),
+  initProcs(N, PrList).
 
-
+% Prawda, jesli jakies dwa procesy wskazuja na instrukcje sekcja
+% Pr1 i Pr2 sa rowne numerom tych procesow
 illegalState(program(P), (_, _, PrL), [Pr1, Pr2]) :-
   nth0(Pr1, PrL, CtPr1),
   nth0(Pr2, PrL, CtPr2),
   Pr1 =\= Pr2,
   nth1(CtPr1, P, sekcja),
-  nth1(CtPr2, P, sekcja),
-  !.
+  nth1(CtPr2, P, sekcja), !.
 
-update_list([_|T], 0, Val, [Val|T]).
-update_list([H|T], N, Val, [H|NT]) :-
-  M is N - 1,
-  update_list(T, M, Val, NT).
 
-find_arr([(X, Tab)|_], X, Tab).
-find_arr([_|T], X, Tab) :-
-  find_arr(T, X, Tab).
-
-update_arr([(X, Map)|T], X, Idx, Val, [(X, MapWy)|T]) :-
-  update_map(Map, Idx, Val, MapWy).
-update_arr([H|T], X, Idx, Val, [H|NT]) :-
-  update_arr(T, X, Idx, Val, NT).
-
-lookup_var([(X, Val)|_], X, Val).
-lookup_var([_|T], X, Val) :-
-  lookup_var(T, X, Val).
-
-update_var([(X,_)|T], X, Val, [(X, Val)|T]).
-update_var([H|T], X, Val, [H|NT]) :-
-  update_var(T, X, Val, NT).
-
-oblicz(pid, (PrId, _, _), PrId) :- !.
-oblicz(N, (_, _, _), N) :-
-  number(N),
-  !.
-oblicz(arr(X, Wyr), (PrId, Var, Arr), Val) :-
+% Wyliczanie wyrazen
+% pid
+calculate(pid, (PrId, _, _), PrId) :- !.
+% liczby
+calculate(N, (_, _, _), N) :-
+  number(N), !.
+% zmienne tablicowe
+calculate(arr(X, Wyr), (PrId, Var, Arr), Val) :-
   atomic(X),
-  oblicz(Wyr, (PrId, Var, Arr), Idx),
-  find_arr(Arr, X, Tab),
-  lookup_map(Tab, Idx, Val),
-  !.
-oblicz(X, (_, Var, _), Val) :-
+  calculate(Wyr, (PrId, Var, Arr), Idx),
+  findArr(Arr, X, Tab),
+  lookupMap(Tab, Idx, Val), !.
+% zmienne
+calculate(X, (_, Var, _), Val) :-
   atomic(X),
-  lookup_var(Var, X, Val),
-  !.
-oblicz(Comp, (PrId, Var, Arr), Val) :-
+  lookupVar(Var, X, Val), !.
+% wyrazenia arytmetyczne
+calculate(Comp, (PrId, Var, Arr), Val) :-
   functor(Comp, _, 2),
   Comp =.. [Op, Wyr1, Wyr2],
-  oblicz(Wyr1, (PrId, Var, Arr), Val1),
-  oblicz(Wyr2, (PrId, Var, Arr), Val2),
+  calculate(Wyr1, (PrId, Var, Arr), Val1),
+  calculate(Wyr2, (PrId, Var, Arr), Val2),
   RetComp =.. [Op, Val1, Val2],
   !,
   Val is RetComp.
 
-przypisz(X, Val, _, (Var, Arr), (VarWy, Arr)) :-
+% przypisywanie wartosci do zmiennych i do tablic
+bind(X, Val, _, (Var, Arr), (VarWy, Arr)) :-
   atomic(X),
-  update_var(Var, X, Val, VarWy).
-przypisz(arr(X, Wyr), Val, PrId, (Var, Arr), (Var, ArrWy)) :-
+  updateVar(Var, X, Val, VarWy).
+bind(arr(X, Wyr), Val, PrId, (Var, Arr), (Var, ArrWy)) :-
   atomic(X),
-  oblicz(Wyr, (PrId, Var, Arr), Idx),
-  update_arr(Arr, X, Idx, Val, ArrWy).
+  calculate(Wyr, (PrId, Var, Arr), Idx),
+  updateArr(Arr, X, Idx, Val, ArrWy).
 
-wykonaj(sekcja, PrId, CtrPr, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
+% wykonywanie instrukcji
+execute(sekcja, PrId, CtrPr, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
   CtrPrWy is CtrPr + 1,
-  update_list(PrL, PrId, CtrPrWy, PrLWy).
-wykonaj(goto(N), PrId, _, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
+  updateMap(PrL, PrId, CtrPrWy, PrLWy).
+execute(goto(N), PrId, _, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
   number(N),
-  update_list(PrL, PrId, N, PrLWy).
-wykonaj(assign(X, Wyr), PrId, CtrPr, (Var, Arr, PrL), (VarWy, ArrWy, PrLWy)) :-
+  updateMap(PrL, PrId, N, PrLWy).
+execute(assign(X, Wyr), PrId, CtrPr, (Var, Arr, PrL), (VarWy, ArrWy, PrLWy)) :-
   CtrPtrWy is CtrPr + 1,
-  update_list(PrL, PrId, CtrPtrWy, PrLWy),
-  oblicz(Wyr, (PrId, Var, Arr), Val),
-  przypisz(X, Val, PrId, (Var, Arr), (VarWy, ArrWy)).
-wykonaj(condGoto(WyrL, N), PrId, CtrPr, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
+  updateMap(PrL, PrId, CtrPtrWy, PrLWy),
+  calculate(Wyr, (PrId, Var, Arr), Val),
+  bind(X, Val, PrId, (Var, Arr), (VarWy, ArrWy)).
+execute(condGoto(WyrL, N), PrId, CtrPr, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
   number(N),
   functor(WyrL, _, 2),
   WyrL =.. [Op, Wyr1, Wyr2],
-  oblicz(Wyr1, (PrId, Var, Arr), Val1),
-  oblicz(Wyr2, (PrId, Var, Arr), Val2),
+  calculate(Wyr1, (PrId, Var, Arr), Val1),
+  calculate(Wyr2, (PrId, Var, Arr), Val2),
   RetComp =.. [Op, Val1, Val2],
   call(RetComp) ->
-  update_list(PrL, PrId, N, PrLWy)
+  updateMap(PrL, PrId, N, PrLWy)
   ; CtrPrWy is CtrPr + 1,
-  update_list(PrL, PrId, CtrPrWy, PrLWy).
+  updateMap(PrL, PrId, CtrPrWy, PrLWy).
   
 
-                                % step(+Program, +StanWe, -PrId, -StanWy)
+% Zdecydowalem sie na typ - dla PrId. Dzieki temu nie musze pilnowac dla jakich
+% procesow szukam ruchu, prolog robi to za mnie. Predykat step jest prawdziwy
+% jesli istnieje jakis ruch ze stanu StanWe do stanu StanWy poprzez wykonanie
+% instrukcji przez proces PrId.
+% step(+Program, +StanWe, -PrId, -StanWy)
 step((_, _, program(P)), (Var, Arr, PrL), PrId, (VarWy, ArrWy, PrLWy)) :-
   nth0(PrId, PrL, CtrPr),
   nth1(CtrPr, P, Ins),
-  wykonaj(Ins, PrId, CtrPr, (Var, Arr, PrL), (VarWy, ArrWy, PrLWy)).
+  execute(Ins, PrId, CtrPr, (Var, Arr, PrL), (VarWy, ArrWy, PrLWy)).
 
-not_member(_, []) :- !.
-not_member(X, [H|T]) :-
-  X \= H,
-  not_member(X, T).
+% Opakowanie na ruch w przeszukiwaniu grafowym
+% Trzymam PrId, zeby wiedziec, ktory proces wykonal instrukcje
+move(State, Parent, PrId, (State, Parent, PrId)).
 
-print_list([]).
-print_list([H|T]) :-
-  write(H), nl,
-  print_list(T).
-
-
-ruch(Stan, Rodzic, PrId, (Stan, Rodzic, PrId)).
-
-possibleMoves(Pr, StanWe, Queue, Visited, Lista) :-
-  possibleMoves(Pr, StanWe, Queue, Visited, [], Lista).
-possibleMoves(Pr, StanWe, Queue, Visited, Lista, NList) :-
-  step(Pr, StanWe, PrId, StanWy),
-  ruch(StanWy, _, _, Test),
-  not_member(Test, Queue),
-  not_member(Test, Lista),
-  not_member((Test,_), Visited) ->
+% Predykat do generowania mozliwych ruchow ze stanu wejsciowego z pominieciem
+% tych, ktore zostaly juz odwiedzone, albo czekaja w kolejce. Nowe stany
+% znajduja sie w zmiennej List. Nowe stany
+% znajduja sie w zmiennej List.
+possibleMoves(Program, StanWe, Queue, Visited, List) :-
+  possibleMoves(Program, StanWe, Queue, Visited, [], List).
+possibleMoves(Program, StanWe, Queue, Visited, List, NewList) :-
+  step(Program, StanWe, PrId, StanWy),
+  move(StanWy, _, _, Test),
+  notMember(Test, Queue),
+  notMember(Test, List),
+  notMember((Test,_), Visited) ->
   !,
-  possibleMoves(Pr, StanWe, Queue, Visited, [(StanWy, StanWe, PrId)|Lista], NList) ;
+  possibleMoves(Program, StanWe, Queue, Visited,
+                [(StanWy, StanWe, PrId)|List], NewList) ;
   !,
-  NList = Lista.
+  NewList = List.
 
-dfs(_, [], _, _) :-
+% Przeszukiwanie grafu (BFS).
+graphSearch(_, [], _, _) :-
   write('Program jest poprawny (bezpieczny).').
-dfs((_,_,P), [(StanP, Rodzic, PrId)|_], Visited, N) :-
+graphSearch((_,_,P), [(StanP, Rodzic, PrId)|_], Visited, N) :-
   illegalState(P, StanP, Pr),
   format('Program nie jest poprawny: stan nr ~p nie jest bezpieczny.~n', [N]),
-  print_path((StanP, Rodzic, PrId), Visited),
+  printPath((StanP, Rodzic, PrId), Visited),
   format('Procesy w sekcji: ~p, ~p.~n', Pr).
-dfs((V,A,P), [(StanP, Rodzic, PrId)|Tail], Visited, N) :-
+graphSearch((V,A,P), [(StanP, Rodzic, PrId)|Tail], Visited, N) :-
   (possibleMoves((V,A,P), StanP, Tail, Visited, StanyWy) ; StanyWy = []),
   append(Tail, StanyWy, NewTail),
   NewVisited = [((StanP, Rodzic, PrId), N)|Visited],
   N1 is N+1,
   dfs((V,A,P), NewTail, NewVisited, N1), !.
 
-print_path((_, nil, nil), _) :-
+% Wypisywanie sciezki (przeplotu)
+printPath((_, nil, nil), _) :-
   write('Niepoprawny przeplot'), nl.
-print_path((_, Rodzic, PrId), Visited) :-
-  ruch(Rodzic, _, _, ((VR, AR, PRL), RR, PR)),
+printPath((_, Rodzic, PrId), Visited) :-
+  move(Rodzic, _, _, ((VR, AR, PRL), RR, PR)),
   member((((VR, AR, PRL), RR, PR), _), Visited),
-  print_path(((VR, AR, PRL), RR, PR), Visited),
+  printPath(((VR, AR, PRL), RR, PR), Visited),
   nth0(PrId, PRL, Ctr),
   format('   Proces ~p: ~p~n', [PrId, Ctr]).
 
@@ -193,6 +218,6 @@ verify(N, Program) :-
   read(P),
   seen,
   initState((V, A, P), N, StanP),
-  dfs((V,A,P), [(StanP, nil, nil)], [], 0).
+  graphSearch((V,A,P), [(StanP, nil, nil)], [], 0).
 verify(_, Program) :-
   format('Error: niepoprawna nazwa pliku - ~p.~n', [Program]).
