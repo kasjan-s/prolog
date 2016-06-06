@@ -5,7 +5,7 @@
 <>(X, Y) :- X =\= Y.
 
 % notMember(+X, +Lista) - predykat jest prawdziwy, jesli w Lista nie ma elementu X
-notMember(_, []) :- !.
+notMember(_, []).
 notMember(X, [H|T]) :-
   X \= H,
   notMember(X, T).
@@ -85,38 +85,45 @@ illegalState(program(P), (_, _, PrL), [Pr1, Pr2]) :-
   nth0(Pr2, PrL, CtPr2),
   Pr1 =\= Pr2,
   nth1(CtPr1, P, sekcja),
-  nth1(CtPr2, P, sekcja), !.
+  nth1(CtPr2, P, sekcja).
 
 
 % Wyliczanie wyrazen
 % pid
-calculate(pid, (PrId, _, _), PrId) :- !.
+calculate(pid, (PrId, _, _), PrId) :-
+  number(PrId).
 % liczby
 calculate(N, (_, _, _), N) :-
-  number(N), !.
-% zmienne tablicowe
-calculate(arr(X, Wyr), (PrId, Var, Arr), Val) :-
-  atomic(X),
-  calculate(Wyr, (PrId, Var, Arr), Idx),
-  findArr(Arr, X, Tab),
-  lookupMap(Tab, Idx, Val), !.
+  number(N).
 % zmienne
 calculate(X, (_, Var, _), Val) :-
   atomic(X),
-  lookupVar(Var, X, Val), !.
+  X \= pid,
+  lookupVar(Var, X, Val),
+  number(Val).
 % wyrazenia arytmetyczne
 calculate(Comp, (PrId, Var, Arr), Val) :-
-  functor(Comp, _, 2),
+  functor(Comp, Name, 2),
+  Name \= arr,
   Comp =.. [Op, Wyr1, Wyr2],
   calculate(Wyr1, (PrId, Var, Arr), Val1),
   calculate(Wyr2, (PrId, Var, Arr), Val2),
   RetComp =.. [Op, Val1, Val2],
-  !,
-  Val is RetComp.
+  Val is RetComp,
+  number(Val).
+% zmienne tablicowe
+calculate(arr(X, Wyr), (PrId, Var, Arr), Val) :-
+  atomic(X),
+  X \= pid,
+  findArr(Arr, X, Tab),
+  calculate(Wyr, (PrId, Var, Arr), Idx),
+  lookupMap(Tab, Idx, Val),
+  number(Val), !.
 
 % przypisywanie wartosci do zmiennych i do tablic
 bind(X, Val, _, (Var, Arr), (VarWy, Arr)) :-
   atomic(X),
+  number(Val),
   updateVar(Var, X, Val, VarWy).
 bind(arr(X, Wyr), Val, PrId, (Var, Arr), (Var, ArrWy)) :-
   atomic(X),
@@ -137,7 +144,8 @@ execute(assign(X, Wyr), PrId, CtrPr, (Var, Arr, PrL), (VarWy, ArrWy, PrLWy)) :-
   bind(X, Val, PrId, (Var, Arr), (VarWy, ArrWy)).
 execute(condGoto(WyrL, N), PrId, CtrPr, (Var, Arr, PrL), (Var, Arr, PrLWy)) :-
   number(N),
-  functor(WyrL, _, 2),
+  functor(WyrL, Name, 2),
+  Name \= arr,
   WyrL =.. [Op, Wyr1, Wyr2],
   calculate(Wyr1, (PrId, Var, Arr), Val1),
   calculate(Wyr2, (PrId, Var, Arr), Val2),
@@ -174,10 +182,8 @@ possibleMoves(Program, StanWe, Queue, Visited, List, NewList) :-
   notMember(Test, Queue),
   notMember(Test, List),
   notMember((Test,_), Visited) ->
-  !,
   possibleMoves(Program, StanWe, Queue, Visited,
                 [(StanWy, StanWe, PrId)|List], NewList) ;
-  !,
   NewList = List.
 
 % Przeszukiwanie grafu (BFS).
@@ -189,11 +195,13 @@ graphSearch((_,_,P), [(StanP, Rodzic, PrId)|_], Visited, N) :-
   printPath((StanP, Rodzic, PrId), Visited),
   format('Procesy w sekcji: ~p, ~p.~n', Pr).
 graphSearch((V,A,P), [(StanP, Rodzic, PrId)|Tail], Visited, N) :-
+  \+ illegalState(P, StanP, _),
   (possibleMoves((V,A,P), StanP, Tail, Visited, StanyWy) ; StanyWy = []),
   append(Tail, StanyWy, NewTail),
   NewVisited = [((StanP, Rodzic, PrId), N)|Visited],
   N1 is N+1,
-  graphSearch((V,A,P), NewTail, NewVisited, N1), !.
+  format('~p ', [N1]),
+  graphSearch((V,A,P), NewTail, NewVisited, N1).
 
 % Wypisywanie sciezki (przeplotu)
 printPath((_, nil, nil), _) :-
