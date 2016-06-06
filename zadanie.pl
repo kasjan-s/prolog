@@ -8,34 +8,22 @@ init_vars([], []).
 init_vars([H|T], [(H,0)|NT]) :-
   init_vars(T,NT).
   
-map(nil).
-map(node(L, _, _, R)) :- map(L), map(R).
-lookup_map(node(_, K, V, _), Key, Value) :-
-  K =:= Key,
-  !,
-  Value is V.
-lookup_map(node(L, K, _, _), Key, Value) :-
-  Key < K,
-  !,
-  lookup_map(L, Key, Value).
-lookup_map(node(_, K, _, R), Key, Value) :-
-  Key > K,
-  !,
-  lookup_map(R, Key, Value).
+lookup_map(List, Key, Value) :-
+  nth0(Key, List, Value).
 
-update_map(nil, Key, Value, node(nil, Key, Value, nil)).
-update_map(node(L, K, _, R), K, Value, node(L, K, Value, R)).
-update_map(node(L, K, V, R), Key, Value, node(NewL, K, V, R)) :-
-  Key < K,
-  !,
-  update_map(L, Key, Value, NewL).
-update_map(node(L, K, V, R), Key, Value, node(L, K, V, NewR)) :-
-  Key > K,
-  !,
-  update_map(R, Key, Value, NewR).
+update_map([], 0, Value, [Value]).
+update_map([_|T], 0, Value, [Value|T]).
+update_map([], Key, Value, [0|T]) :-
+  Key > 0,
+  NK is Key - 1,
+  update_map([], NK, Value, T).
+update_map([H|T], Key, Value, [H|NT]) :-
+  Key > 0,
+  NK is Key - 1,
+  update_map(T, NK, Value, NT).
 
 init_arrays([], []).
-init_arrays([H|T], [(H,nil)|AT]) :-
+init_arrays([H|T], [(H,[])|AT]) :-
   init_arrays(T, AT). 
 
 init_procs(N, PrList) :-
@@ -162,8 +150,9 @@ possibleMoves(Pr, StanWe, Lista, NList) :-
   NList = Lista.
 
 dfs((V,A,P), StanP, Path, Visited, Seen) :-
-  % length(Seen, N),
-  % write(N),
+  length(Path, N),
+  write(N), nl,
+  read(_),
   illegalState(P, StanP) ->
   !, print_list([StanP|Path]) ;
   not_member(StanP, Visited),
