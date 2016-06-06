@@ -151,16 +151,29 @@ print_list([H|T]) :-
   write(H), nl,
   print_list(T).
 
-dfs((V,A,P), StanP, List) :-
-  length(List, N),
-  write(N), nl,
+possibleMoves(Pr, StanWe, Lista) :-
+  possibleMoves(Pr, StanWe, [], Lista).
+possibleMoves(Pr, StanWe, Lista, NList) :-
+  step(Pr, StanWe, _, StanWy),
+  not_member(StanWy, Lista) ->
+  !,
+  possibleMoves(Pr, StanWe, [StanWy|Lista], NList) ;
+  !,
+  NList = Lista.
+
+dfs((V,A,P), StanP, Path, Visited, Seen) :-
+  % length(Seen, N),
+  % write(N),
   illegalState(P, StanP) ->
-  !, print_list([StanP|List]) ;
-  not_member(StanP, List),
-  step((V,A,P), StanP, PrId, StanWy),
-  % format('Proces ~p ~n', PrId),
-  not_member(StanWy, List),
-  dfs((V,A,P), StanWy, [StanP|List]).
+  !, print_list([StanP|Path]) ;
+  not_member(StanP, Visited),
+  possibleMoves((V,A,P), StanP, StanyWy),
+  append(StanyWy, Seen, NS),
+  remove_dups(NS, NewSeen),
+  member(StanWy, StanyWy),
+  not_member(StanWy, Visited),
+  not_member(StanWy, Seen),
+  dfs((V,A,P), StanWy, [StanP|Path], [StanP|Visited], NewSeen).
 
 verify(N, _) :-
   N =< 0,
@@ -174,7 +187,13 @@ verify(N, Program) :-
   read(P),
   seen,
   initState((V, A, P), N, StanP),
-  dfs((V,A,P), StanP, []).
+  % possibleMoves((V,A,P), StanP, Lista),
+  % print_list(Lista).
+  % step((V,A,P), StanP, PrId, StanWy),
+  % write(PrId), nl,
+  % write(StanWy), nl,
+  % 1 =:= 3.
+  dfs((V,A,P), StanP, [], [], [StanP]).
 verify(_, Program) :-
   format('Error: niepoprawna nazwa pliku - ~p.~n', [Program]).
                                 % verify(N, Program)
