@@ -1,3 +1,6 @@
+                                % autor: Kasjan Siwek
+                                % indeks: 306827
+
 :- ensure_loaded(library(lists)).
 
 :- op(700, xfx, <>).
