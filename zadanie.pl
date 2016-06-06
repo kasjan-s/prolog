@@ -15,8 +15,12 @@ notMember(X, [H|T]) :-
 lookupMap(List, Key, Value) :-
   length(List, N),
   Key < N,
+  Key >= 0,
   nth0(Key, List, Value).
-lookupMap(_, _, 0).
+lookupMap([], _, 0).
+lookupMap(List, Key, 0) :-
+  length(List, N),
+  Key >= N.
 
 updateMap([], 0, Value, [Value]).
 updateMap([_|T], 0, Value, [Value|T]).
@@ -118,7 +122,7 @@ calculate(arr(X, Wyr), (PrId, Var, Arr), Val) :-
   findArr(Arr, X, Tab),
   calculate(Wyr, (PrId, Var, Arr), Idx),
   lookupMap(Tab, Idx, Val),
-  number(Val), !.
+  number(Val).
 
 % przypisywanie wartosci do zmiennych i do tablic
 bind(X, Val, _, (Var, Arr), (VarWy, Arr)) :-
@@ -196,11 +200,11 @@ graphSearch((_,_,P), [(StanP, Rodzic, PrId)|_], Visited, N) :-
   format('Procesy w sekcji: ~p, ~p.~n', Pr).
 graphSearch((V,A,P), [(StanP, Rodzic, PrId)|Tail], Visited, N) :-
   \+ illegalState(P, StanP, _),
-  (possibleMoves((V,A,P), StanP, Tail, Visited, StanyWy) ; StanyWy = []),
+  (possibleMoves((V,A,P), StanP, Tail, Visited, StanyWy)      % Znalezione ruchy
+  ; StanyWy = []),                                            % Nieznalezione
   append(Tail, StanyWy, NewTail),
   NewVisited = [((StanP, Rodzic, PrId), N)|Visited],
   N1 is N+1,
-  format('~p ', [N1]),
   graphSearch((V,A,P), NewTail, NewVisited, N1).
 
 % Wypisywanie sciezki (przeplotu)
